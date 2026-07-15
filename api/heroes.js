@@ -47,6 +47,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 20000);
+
     const response = await fetch(SOURCE_URL, {
       method: "GET",
       headers: {
@@ -56,8 +62,10 @@ export default async function handler(req, res) {
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9"
       },
-      signal: AbortSignal.timeout(20000)
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       throw new Error(
@@ -99,7 +107,10 @@ export default async function handler(req, res) {
         if (!isValidHeroSlug(slug)) return;
 
         let name = cleanText(
-          element.find("h2, h3, h4, [class*='name']").first().text()
+          element
+            .find("h2, h3, h4, [class*='name']")
+            .first()
+            .text()
         );
 
         if (!name) {
@@ -124,15 +135,15 @@ export default async function handler(req, res) {
 
         heroMap.set(slug, {
           id: slug,
-          name,
-          slug,
+          name: name,
+          slug: slug,
           details_url: `${SITE_ORIGIN}/heroes/${slug}`
         });
       }
     );
 
-    const heroes = Array.from(heroMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
+    const heroes = Array.from(heroMap.values()).sort(
+      (a, b) => a.name.localeCompare(b.name)
     );
 
     if (heroes.length === 0) {
@@ -151,7 +162,7 @@ export default async function handler(req, res) {
       source: SOURCE_URL,
       total: heroes.length,
       fetched_at: new Date().toISOString(),
-      heroes
+      heroes: heroes
     });
   } catch (error) {
     console.error("Hero scraper error:", error);
